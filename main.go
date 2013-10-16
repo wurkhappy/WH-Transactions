@@ -7,8 +7,8 @@ import (
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/streadway/amqp"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
+	"labix.org/v2/mgo"
 	"log"
-	// "time"
 )
 
 var (
@@ -18,6 +18,13 @@ var (
 	queue        = flag.String("queue", "transactions", "Ephemeral AMQP queue name")
 	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
 )
+
+var Session *mgo.Session
+
+var Config = map[string]string{
+	"DBName": "UserDB",
+	"DBURL":  "localhost:27017",
+}
 
 //order matters so most general should go towards the bottom
 var router urlrouter.Router = urlrouter.Router{
@@ -37,7 +44,7 @@ var router urlrouter.Router = urlrouter.Router{
 		urlrouter.Route{
 			PathExp: "/transaction/:id",
 			Dest: map[string]interface{}{
-				"POST": other,
+				"POST": CreateTransaction,
 			},
 		},
 	},
@@ -48,6 +55,11 @@ func init() {
 }
 
 func main() {
+	var err error
+	Session, err = mgo.Dial(Config["DBURL"])
+	if err != nil {
+		panic(err)
+	}
 
 	log.Printf("dialing %q", *uri)
 	conn, err := amqp.Dial(*uri)
@@ -66,31 +78,34 @@ func main() {
 		panic(err)
 	}
 
-	go routeMapper(deliveries)
-
+	routeMapper(deliveries)
 	select {}
 }
 
 func routeMapper(deliveries <-chan amqp.Delivery) {
 	for d := range deliveries {
-		log.Print(d.RoutingKey)
-		route, params, err := router.FindRoute(d.RoutingKey)
-		if err != nil || route == nil {
-			log.Print(err)
-			continue
-		}
+		//this should use a goroutine but channel closes under heavy load
+		func(amqp.Delivery) {
+			route, params, err := router.FindRoute(d.RoutingKey)
+			if err != nil || route == nil {
+				log.Printf("first error is: %v", err)
+				return
+			}
 
-		var m map[string]interface{}
-		json.Unmarshal(d.Body, &m)
-		body := m["Body"].(map[string]interface{})
-		routedMap := route.Dest.(map[string]interface{})
-		handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{})(error))
-
-		err = handler(params, body)
-		if err != nil {
-			d.Nack(true, true)
-		}
-		d.Ack(true)
+			var m map[string]interface{}
+			json.Unmarshal(d.Body, &m)
+			body := m["Body"].(map[string]interface{})
+			routedMap := route.Dest.(map[string]interface{})
+			handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}, *mgo.Database) error)
+			db := Session.Clone().DB(Config["DBName"])
+			defer db.Session.Close()
+			err = handler(params, body, db)
+			if err != nil {
+				log.Printf("second error is: %v", err)
+				d.Nack(false, true)
+			}
+			d.Ack(false)
+		}(d)
 
 	}
 	log.Printf("handle: deliveries channel closed")
