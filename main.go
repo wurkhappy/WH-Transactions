@@ -1,24 +1,46 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/ant0ine/go-urlrouter"
 	"github.com/streadway/amqp"
+	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
 	"log"
 	// "time"
 )
 
 var (
 	uri          = flag.String("uri", "amqp://guest:guest@localhost:5672/", "AMQP URI")
-	exchange     = flag.String("exchange", "test-exchange", "Durable, non-auto-deleted AMQP exchange name")
+	exchange     = flag.String("exchange", "transactions", "Durable, non-auto-deleted AMQP exchange name")
 	exchangeType = flag.String("exchange-type", "direct", "Exchange type - direct|fanout|topic|x-custom")
-	queue        = flag.String("queue", "test-queue", "Ephemeral AMQP queue name")
+	queue        = flag.String("queue", "transactions", "Ephemeral AMQP queue name")
 	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
 )
 
-var routeMapper map[string]func(amqp.Delivery) = map[string]func(amqp.Delivery){
-	"test-key": testKey,
-	"other": other,
+//order matters so most general should go towards the bottom
+var router urlrouter.Router = urlrouter.Router{
+	Routes: []urlrouter.Route{
+		urlrouter.Route{
+			PathExp: "/other",
+			Dest: map[string]interface{}{
+				"POST": testKey,
+			},
+		},
+		urlrouter.Route{
+			PathExp: "/transaction/hi",
+			Dest: map[string]interface{}{
+				"POST": testKey,
+			},
+		},
+		urlrouter.Route{
+			PathExp: "/transaction/:id",
+			Dest: map[string]interface{}{
+				"POST": other,
+			},
+		},
+	},
 }
 
 func init() {
@@ -32,37 +54,44 @@ func main() {
 	if err != nil {
 		fmt.Errorf("Dial: %s", err)
 	}
-	c, err := NewConsumer(conn, *exchange, *exchangeType, *queue, *consumerTag)
+	c, err := rbtmq.NewConsumer(conn, *exchange, *exchangeType, *queue, *consumerTag)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	for key, _ := range routeMapper{
-		c.bindToQueue(*exchange, *queue, key)
-	}
 
-	deliveries, err := c.channel.Consume(
-		*queue, // name
-		c.tag,  // consumerTag,
-		false,  // noAck
-		false,  // exclusive
-		false,  // noLocal
-		false,  // noWait
-		nil,    // arguments
-	)
+	deliveries := c.Consume(*queue)
+
+	err = router.Start()
 	if err != nil {
-		fmt.Errorf("Deliveries: %s", err)
+		panic(err)
 	}
 
-	go router(deliveries, c.done)
+	go routeMapper(deliveries)
 
 	select {}
 }
 
-func router(deliveries <-chan amqp.Delivery, done chan error) {
+func routeMapper(deliveries <-chan amqp.Delivery) {
 	for d := range deliveries {
-		route := routeMapper[d.RoutingKey]
-		go route(d)
+		log.Print(d.RoutingKey)
+		route, params, err := router.FindRoute(d.RoutingKey)
+		if err != nil || route == nil {
+			log.Print(err)
+			continue
+		}
+
+		var m map[string]interface{}
+		json.Unmarshal(d.Body, &m)
+		body := m["Body"].(map[string]interface{})
+		routedMap := route.Dest.(map[string]interface{})
+		handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{})(error))
+
+		err = handler(params, body)
+		if err != nil {
+			d.Nack(true, true)
+		}
+		d.Ack(true)
+
 	}
 	log.Printf("handle: deliveries channel closed")
-	done <- nil
 }

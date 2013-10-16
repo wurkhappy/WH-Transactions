@@ -1,18 +1,20 @@
 package main
 
 import (
-	"github.com/streadway/amqp"
+	// "github.com/streadway/amqp"
 	"log"
 )
 
-func testKey(d amqp.Delivery) {
+func testKey(params map[string]string, body map[string]interface{}) error{
 	log.Print("testKey")
-	log.Print(string(d.Body))
-	d.Ack(true)
+	log.Print(body)
+	// d.Ack(true)
+	return nil
 }
 
-func other(d amqp.Delivery) {
+func other(params map[string]string, body map[string]interface{}) error{
 	log.Print("other")
-	log.Print(string(d.Body))
-	d.Ack(true)
+	log.Print(body)
+	// d.Ack(true)
+	return nil
 }
