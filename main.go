@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/streadway/amqp"
+	"github.com/wurkhappy/Balanced-go"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
+	"github.com/wurkhappy/WH-Transactions/handlers"
 	"labix.org/v2/mgo"
 	"log"
 )
@@ -30,21 +32,15 @@ var Config = map[string]string{
 var router urlrouter.Router = urlrouter.Router{
 	Routes: []urlrouter.Route{
 		urlrouter.Route{
-			PathExp: "/other",
+			PathExp: "/transactions",
 			Dest: map[string]interface{}{
-				"POST": testKey,
+				"POST": handlers.CreateTransaction,
 			},
 		},
 		urlrouter.Route{
-			PathExp: "/transaction/hi",
+			PathExp: "/payment/:id/transaction",
 			Dest: map[string]interface{}{
-				"POST": testKey,
-			},
-		},
-		urlrouter.Route{
-			PathExp: "/transaction/:id",
-			Dest: map[string]interface{}{
-				"POST": CreateTransaction,
+				"PUT": handlers.SendPayment,
 			},
 		},
 	},
@@ -55,6 +51,7 @@ func init() {
 }
 
 func main() {
+	balanced.Username = "ak-test-x9PqPQUtpvUtnXsZqBL4rXGAE8WvvqoJ"
 	var err error
 	Session, err = mgo.Dial(Config["DBURL"])
 	if err != nil {
@@ -77,7 +74,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	log.Print("route")
 	routeMapper(deliveries)
 	select {}
 }
