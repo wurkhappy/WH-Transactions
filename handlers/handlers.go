@@ -23,18 +23,25 @@ func CreateTransaction(params map[string]string, body map[string]interface{}, db
 }
 
 func SendPayment(params map[string]string, body map[string]interface{}, db *mgo.Database) error {
+	log.Print("send payment")
 	paymentID := params["id"]
 	transaction, _ := models.FindTransactionByPaymentID(paymentID, db)
+	log.Print(paymentID)
 	transaction.DebitSourceURI = body["debitSourceURI"].(string)
+	log.Print(transaction.DebitSourceURI)
 	debit := transaction.ConvertToDebit()
+	log.Print(debit)
 	customer := getClient(transaction.ClientID)
+	debit.Amount = debit.Amount * 100
 	bError := customer.Debit(debit)
 	if bError != nil {
+		log.Printf("berror is %s", bError)
 		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
 	}
 	transaction.DebitURI = debit.URI
 	err := transaction.SaveToDB(db)
 	if err != nil {
+		log.Printf("db error is %s", err)
 		return err
 	}
 

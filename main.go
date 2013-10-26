@@ -75,35 +75,29 @@ func main() {
 		panic(err)
 	}
 	log.Print("route")
-	routeMapper(deliveries)
-	select {}
+	for d := range deliveries {
+		go routeMapper(d)
+	}
 }
 
-func routeMapper(deliveries <-chan amqp.Delivery) {
-	for d := range deliveries {
-		//this should use a goroutine but channel closes under heavy load
-		func(amqp.Delivery) {
-			route, params, err := router.FindRoute(d.RoutingKey)
-			if err != nil || route == nil {
-				log.Printf("first error is: %v", err)
-				return
-			}
-
-			var m map[string]interface{}
-			json.Unmarshal(d.Body, &m)
-			body := m["Body"].(map[string]interface{})
-			routedMap := route.Dest.(map[string]interface{})
-			handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}, *mgo.Database) error)
-			db := Session.Clone().DB(Config["DBName"])
-			defer db.Session.Close()
-			err = handler(params, body, db)
-			if err != nil {
-				log.Printf("second error is: %v", err)
-				d.Nack(false, true)
-			}
-			d.Ack(false)
-		}(d)
-
+func routeMapper(d amqp.Delivery) {
+	route, params, err := router.FindRoute(d.RoutingKey)
+	if err != nil || route == nil {
+		log.Printf("first error is: %v", err)
+		return
 	}
-	log.Printf("handle: deliveries channel closed")
+
+	var m map[string]interface{}
+	json.Unmarshal(d.Body, &m)
+	body := m["Body"].(map[string]interface{})
+	routedMap := route.Dest.(map[string]interface{})
+	handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}, *mgo.Database) error)
+	db := Session.Clone().DB(Config["DBName"])
+	defer db.Session.Close()
+	err = handler(params, body, db)
+	if err != nil {
+		log.Printf("second error is: %v", err)
+		d.Nack(false, false)
+	}
+	d.Ack(false)
 }
