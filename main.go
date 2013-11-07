@@ -9,7 +9,6 @@ import (
 	"github.com/wurkhappy/Balanced-go"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
 	"github.com/wurkhappy/WH-Transactions/handlers"
-	"labix.org/v2/mgo"
 	"log"
 )
 
@@ -21,11 +20,9 @@ var (
 	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
 )
 
-var Session *mgo.Session
-
 var Config = map[string]string{
 	"DBName": "UserDB",
-	"DBURL":  "localhost:27017",
+	"DBURL":  "192.168.139.152:27017",
 }
 
 //order matters so most general should go towards the bottom
@@ -53,11 +50,6 @@ func init() {
 func main() {
 	balanced.Username = "ak-test-x9PqPQUtpvUtnXsZqBL4rXGAE8WvvqoJ"
 	var err error
-	Session, err = mgo.Dial(Config["DBURL"])
-	if err != nil {
-		panic(err)
-	}
-
 	log.Printf("dialing %q", *uri)
 	conn, err := amqp.Dial(*uri)
 	if err != nil {
@@ -91,10 +83,8 @@ func routeMapper(d amqp.Delivery) {
 	json.Unmarshal(d.Body, &m)
 	body := m["Body"].(map[string]interface{})
 	routedMap := route.Dest.(map[string]interface{})
-	handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}, *mgo.Database) error)
-	db := Session.Clone().DB(Config["DBName"])
-	defer db.Session.Close()
-	err = handler(params, body, db)
+	handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}) error)
+	err = handler(params, body)
 	if err != nil {
 		log.Printf("second error is: %v", err)
 		d.Nack(false, false)

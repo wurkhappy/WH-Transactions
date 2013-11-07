@@ -2,19 +2,17 @@ package handlers
 
 import (
 	"github.com/wurkhappy/WH-Transactions/models"
-	// "github.com/streadway/amqp"
 	"encoding/json"
 	"fmt"
 	"github.com/wurkhappy/Balanced-go"
-	"labix.org/v2/mgo"
 	"log"
 	"net/http"
 )
 
-func CreateTransaction(params map[string]string, body map[string]interface{}, db *mgo.Database) error {
+func CreateTransaction(params map[string]string, body map[string]interface{}) error {
 	log.Print(body)
 	transaction := models.NewTransactionFromRequest(body)
-	err := transaction.SaveToDB(db)
+	err := transaction.Save()
 	if err != nil {
 		return err
 	}
@@ -22,10 +20,10 @@ func CreateTransaction(params map[string]string, body map[string]interface{}, db
 	return nil
 }
 
-func SendPayment(params map[string]string, body map[string]interface{}, db *mgo.Database) error {
+func SendPayment(params map[string]string, body map[string]interface{}) error {
 	log.Print("send payment")
 	paymentID := params["id"]
-	transaction, _ := models.FindTransactionByPaymentID(paymentID, db)
+	transaction, _ := models.FindTransactionByPaymentID(paymentID)
 	log.Print(paymentID)
 	transaction.DebitSourceURI = body["debitSourceURI"].(string)
 	log.Print(transaction.DebitSourceURI)
@@ -39,7 +37,7 @@ func SendPayment(params map[string]string, body map[string]interface{}, db *mgo.
 		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
 	}
 	transaction.DebitURI = debit.URI
-	err := transaction.SaveToDB(db)
+	err := transaction.Save()
 	if err != nil {
 		log.Printf("db error is %s", err)
 		return err

@@ -1,15 +1,15 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/nu7hatch/gouuid"
 	"github.com/wurkhappy/Balanced-go"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"github.com/wurkhappy/WH-Transactions/DB"
 	"log"
 )
 
 type Transaction struct {
-	ID              string  `json:"id" bson:"_id"`
+	ID              string  `json:"id"`
 	DebitSourceURI  string  `json:"debitSourceURI"`
 	ClientID        string  `json:"clientID"`
 	FreelancerID    string  `json:"freelancerID"`
@@ -36,21 +36,23 @@ func NewTransactionFromRequest(m map[string]interface{}) *Transaction {
 
 }
 
-func (t *Transaction) SaveToDB(db *mgo.Database) error {
-	coll := db.C("transactions")
-	if _, err := coll.UpsertId(t.ID, &t); err != nil {
-		log.Printf("db error is: %v", err)
+func (t *Transaction) Save() error {
+	jsonByte, _ := json.Marshal(t)
+	_, err := DB.UpsertTransaction.Query(t.ID, string(jsonByte))
+	if err != nil {
+		log.Print(err)
 		return err
 	}
 	return nil
 }
 
-func FindTransactionByPaymentID(id string, db *mgo.Database) (t *Transaction, err error) {
-	err = db.C("transactions").Find(bson.M{"paymentid": id}).One(&t)
+func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
+	var s string
+	err = DB.FindTransactionByID.QueryRow(id).Scan(&s)
 	if err != nil {
 		return nil, err
 	}
-
+	json.Unmarshal([]byte(s), &t)
 	return t, nil
 }
 
