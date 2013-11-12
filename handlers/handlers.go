@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"github.com/wurkhappy/WH-Transactions/models"
 	"encoding/json"
 	"fmt"
 	"github.com/wurkhappy/Balanced-go"
+	"github.com/wurkhappy/WH-Transactions/models"
+	"github.com/wurkhappy/WH-WebApp/config"
+	"github.com/wurkhappy/mdp"
 	"log"
-	"net/http"
 )
 
 func CreateTransaction(params map[string]string, body map[string]interface{}) error {
@@ -47,19 +48,39 @@ func SendPayment(params map[string]string, body map[string]interface{}) error {
 }
 
 func getClient(clientID string) *balanced.Customer {
-	client := &http.Client{}
-	r, _ := http.NewRequest("GET", "http://localhost:3120/user/"+clientID, nil)
-	resp, err := client.Do(r)
-	if err != nil {
-		fmt.Printf("Error : %s", err)
+	resp, statusCode := sendServiceRequest("GET", config.PaymentInfoService, "/user/"+clientID, nil)
+	if statusCode >= 400 {
+		return nil
 	}
 
-	m := make(map[string]interface{})
-	dec := json.NewDecoder(resp.Body)
-	dec.Decode(&m)
-	log.Print(m)
+	var m map[string]interface{}
+	json.Unmarshal(resp, &m)
 	customer := new(balanced.Customer)
 	customer.URI = m["uri"].(string)
 	customer.DebitsURI = m["debitsURI"].(string)
 	return customer
+}
+
+type ServiceResp struct {
+	StatusCode float64 `json:"status_code"`
+	Body       []byte  `json:"body"`
+}
+
+func sendServiceRequest(method, service, path string, body []byte) (response []byte, statusCode int) {
+	client := mdp.NewClient("tcp://localhost:5555", false)
+	defer client.Close()
+	m := map[string]interface{}{
+		"Method": method,
+		"Path":   path,
+		"Body":   body,
+	}
+	req, _ := json.Marshal(m)
+	request := [][]byte{req}
+	reply := client.Send([]byte(service), request)
+	if len(reply) == 0 {
+		return nil, 404
+	}
+	resp := new(ServiceResp)
+	json.Unmarshal(reply[0], &resp)
+	return resp.Body, int(resp.StatusCode)
 }
