@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/wurkhappy/Balanced-go"
 	"github.com/wurkhappy/WH-Transactions/models"
-	"github.com/wurkhappy/WH-WebApp/config"
+	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/mdp"
 	"log"
 )
@@ -67,7 +67,7 @@ type ServiceResp struct {
 }
 
 func sendServiceRequest(method, service, path string, body []byte) (response []byte, statusCode int) {
-	client := mdp.NewClient("tcp://localhost:5555", false)
+	client := mdp.NewClient(config.MDPBroker, false)
 	defer client.Close()
 	m := map[string]interface{}{
 		"Method": method,

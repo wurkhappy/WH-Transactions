@@ -8,22 +8,16 @@ import (
 	"github.com/streadway/amqp"
 	"github.com/wurkhappy/Balanced-go"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
+	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/handlers"
 	"log"
 )
 
 var (
-	uri          = flag.String("uri", "amqp://guest:guest@localhost:5672/", "AMQP URI")
-	exchange     = flag.String("exchange", "transactions", "Durable, non-auto-deleted AMQP exchange name")
 	exchangeType = flag.String("exchange-type", "direct", "Exchange type - direct|fanout|topic|x-custom")
-	queue        = flag.String("queue", "transactions", "Ephemeral AMQP queue name")
 	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
+	production   = flag.Bool("production", false, "Production settings")
 )
-
-var Config = map[string]string{
-	"DBName": "UserDB",
-	"DBURL":  "192.168.139.152:27017",
-}
 
 //order matters so most general should go towards the bottom
 var router urlrouter.Router = urlrouter.Router{
@@ -43,24 +37,25 @@ var router urlrouter.Router = urlrouter.Router{
 	},
 }
 
-func init() {
-	flag.Parse()
-}
-
 func main() {
-	balanced.Username = "ak-test-x9PqPQUtpvUtnXsZqBL4rXGAE8WvvqoJ"
+	flag.Parse()
+	if *production {
+		config.Prod()
+	} else {
+		config.Test()
+	}
+	balanced.Username = config.BalancedUsername
 	var err error
-	log.Printf("dialing %q", *uri)
-	conn, err := amqp.Dial(*uri)
+	conn, err := amqp.Dial(config.TransactionsBroker)
 	if err != nil {
 		fmt.Errorf("Dial: %s", err)
 	}
-	c, err := rbtmq.NewConsumer(conn, *exchange, *exchangeType, *queue, *consumerTag)
+	c, err := rbtmq.NewConsumer(conn, config.TransactionsExchange, *exchangeType, config.TransactionsQueue, *consumerTag)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 
-	deliveries := c.Consume(*queue)
+	deliveries := c.Consume(config.TransactionsQueue)
 
 	err = router.Start()
 	if err != nil {
