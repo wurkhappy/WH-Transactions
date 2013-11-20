@@ -17,7 +17,7 @@ func Setup(production bool) {
 func Connect(production bool) {
 	var err error
 	if production {
-		DB, err = sql.Open("postgres", "user=wurkhappy password=whcoll@b dbname="+Name+" sslmode=disable")
+		DB, err = sql.Open("postgres", "user=wurkhappy password=whcollab dbname="+Name+" sslmode=disable")
 	} else {
 		DB, err = sql.Open("postgres", "user=postgres dbname="+Name+" sslmode=disable")
 	}
