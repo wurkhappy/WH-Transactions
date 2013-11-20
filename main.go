@@ -9,6 +9,7 @@ import (
 	"github.com/wurkhappy/Balanced-go"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
 	"github.com/wurkhappy/WH-Config"
+	"github.com/wurkhappy/WH-Transactions/DB"
 	"github.com/wurkhappy/WH-Transactions/handlers"
 	"log"
 )
@@ -44,6 +45,7 @@ func main() {
 	} else {
 		config.Test()
 	}
+	DB.Setup(*production)
 	balanced.Username = config.BalancedUsername
 	var err error
 	conn, err := amqp.Dial(config.TransactionsBroker)

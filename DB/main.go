@@ -9,14 +9,18 @@ import (
 var DB *sql.DB
 var Name string = "wurkhappy"
 
-func init() {
-	Setup()
+func Setup(production bool) {
+	Connect(production)
 	CreateStatements()
 }
 
-func Setup() {
+func Connect(production bool) {
 	var err error
-	DB, err = sql.Open("postgres", "user=postgres dbname="+Name+" sslmode=disable")
+	if production {
+		DB, err = sql.Open("postgres", "user=wurkhappy password=whcoll@b dbname="+Name+" sslmode=disable")
+	} else {
+		DB, err = sql.Open("postgres", "user=postgres dbname="+Name+" sslmode=disable")
+	}
 	if err != nil {
 		panic(err)
 	}
