@@ -57,7 +57,7 @@ func ProcessCredit(params map[string]string, body []byte) error {
 	fmt.Println(string(body))
 	var callback *DebitCallback
 	json.Unmarshal(body, &callback)
-	id := callback.Debit.Meta["id"].(string)
+	id := callback.Debit.Meta["id"]
 	transaction, _ := models.FindTransactionByID(id)
 	credit := transaction.ConvertToCredit()
 	bank_account := transaction.CreateBankAccount()
