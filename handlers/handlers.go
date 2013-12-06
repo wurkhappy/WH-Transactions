@@ -4,15 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/wurkhappy/Balanced-go"
-	"github.com/wurkhappy/WH-Transactions/models"
 	"github.com/wurkhappy/WH-Config"
+	"github.com/wurkhappy/WH-Transactions/models"
 	"github.com/wurkhappy/mdp"
 	"log"
 )
 
-func CreateTransaction(params map[string]string, body map[string]interface{}) error {
-	log.Print(body)
-	transaction := models.NewTransactionFromRequest(body)
+func CreateTransaction(params map[string]string, body []byte) error {
+	log.Print(string(body))
+	var m map[string]interface{}
+	json.Unmarshal(body, &m)
+	transaction := models.NewTransactionFromRequest(m)
 	err := transaction.Save()
 	if err != nil {
 		return err
@@ -21,17 +23,16 @@ func CreateTransaction(params map[string]string, body map[string]interface{}) er
 	return nil
 }
 
-func SendPayment(params map[string]string, body map[string]interface{}) error {
+func SendPayment(params map[string]string, body []byte) error {
 	log.Print("send payment")
+	var m map[string]interface{}
+	json.Unmarshal(body, &m)
+
 	paymentID := params["id"]
 	transaction, _ := models.FindTransactionByPaymentID(paymentID)
-	log.Print(paymentID)
-	transaction.DebitSourceURI = body["debitSourceURI"].(string)
-	log.Print(transaction.DebitSourceURI)
+	transaction.DebitSourceURI = m["debitSourceURI"].(string)
 	debit := transaction.ConvertToDebit()
-	log.Print(debit)
 	customer := getClient(transaction.ClientID)
-	debit.Amount = debit.Amount * 100
 	bError := customer.Debit(debit)
 	if bError != nil {
 		log.Printf("berror is %s", bError)
@@ -44,6 +45,27 @@ func SendPayment(params map[string]string, body map[string]interface{}) error {
 		return err
 	}
 
+	return nil
+}
+
+type DebitCallback struct {
+	Debit *balanced.Debit `json:"entity"`
+	Type   string  `json:"type"`
+}
+
+func ProcessCredit(params map[string]string, body []byte) error {
+	fmt.Println(string(body))
+	var callback *DebitCallback
+	json.Unmarshal(body, &callback)
+	id := callback.Debit.Meta["id"].(string)
+	transaction, _ := models.FindTransactionByID(id)
+	credit := transaction.ConvertToCredit()
+	bank_account := transaction.CreateBankAccount()
+	bError := bank_account.Credit(credit)
+	if bError != nil {
+		log.Printf("berror is %s", bError)
+		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
+	}
 	return nil
 }
 

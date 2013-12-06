@@ -35,6 +35,12 @@ var router urlrouter.Router = urlrouter.Router{
 				"PUT": handlers.SendPayment,
 			},
 		},
+		urlrouter.Route{
+			PathExp: "/debit/process",
+			Dest: map[string]interface{}{
+				"POST": handlers.ProcessCredit,
+			},
+		},
 	},
 }
 
@@ -69,6 +75,12 @@ func main() {
 	}
 }
 
+type ServiceReq struct {
+	Method string
+	Path   string
+	Body   []byte
+}
+
 func routeMapper(d amqp.Delivery) {
 	route, params, err := router.FindRoute(d.RoutingKey)
 	if err != nil || route == nil {
@@ -76,12 +88,15 @@ func routeMapper(d amqp.Delivery) {
 		return
 	}
 
-	var m map[string]interface{}
-	json.Unmarshal(d.Body, &m)
-	body := m["Body"].(map[string]interface{})
+	var req *ServiceReq
+	err = json.Unmarshal(d.Body, &req)
+	if err != nil {
+		fmt.Println(err)
+		d.Nack(false, false)
+	}
 	routedMap := route.Dest.(map[string]interface{})
-	handler := routedMap[m["Method"].(string)].(func(map[string]string, map[string]interface{}) error)
-	err = handler(params, body)
+	handler := routedMap[req.Method].(func(map[string]string, []byte) error)
+	err = handler(params, req.Body)
 	if err != nil {
 		log.Printf("second error is: %v", err)
 		d.Nack(false, false)

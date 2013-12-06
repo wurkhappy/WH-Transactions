@@ -46,7 +46,7 @@ func (t *Transaction) Save() error {
 	return nil
 }
 
-func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
+func FindTransactionByID(id string) (t *Transaction, err error) {
 	var s string
 	err = DB.FindTransactionByID.QueryRow(id).Scan(&s)
 	if err != nil {
@@ -56,9 +56,25 @@ func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
 	return t, nil
 }
 
+func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
+	var s string
+	err = DB.FindTransactionByPaymentID.QueryRow(id).Scan(&s)
+	if err != nil {
+		return nil, err
+	}
+	json.Unmarshal([]byte(s), &t)
+	return t, nil
+}
+
+func (t *Transaction) CreateBankAccount() *balanced.BankAccount{
+	bank_account := new(balanced.BankAccount)
+	bank_account.CreditsURI = t.CreditSourceURI
+	return bank_account
+}
+
 func (t *Transaction) ConvertToDebit() *balanced.Debit {
 	debit := new(balanced.Debit)
-	debit.Amount = int(t.Amount)
+	debit.Amount = int(t.Amount) * 100
 	debit.AppearsOnStatementAs = "Wurk Happy"
 	debit.SourceUri = t.DebitSourceURI
 	debit.Meta = map[string]string{
@@ -66,4 +82,14 @@ func (t *Transaction) ConvertToDebit() *balanced.Debit {
 		"creditSourceURI": t.CreditSourceURI,
 	}
 	return debit
+}
+
+func (t *Transaction) ConvertToCredit() *balanced.Credit {
+	credit := new(balanced.Credit)
+	credit.Amount = int(t.Amount) * 100
+	credit.AppearsOnStatementAs = "Wurk Happy"
+	credit.Meta = map[string]string{
+		"id":              t.ID,
+	}
+	return credit
 }
