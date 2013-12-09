@@ -21,4 +21,5 @@ func TestIntegrationTests(t *testing.T) {
 
 func TestUnitTests(t *testing.T) {
 	test_ConvertToCredit(t)
+	test_CalculateFee(t)
 }

@@ -17,6 +17,7 @@ type Transaction struct {
 	PaymentID       string  `json:"paymentID"`
 	Amount          float64 `json:"amount"`
 	CreditSourceURI string  `json:"creditSourceURI"`
+	PaymentType     string  `json:"paymentType"`
 	DebitURI        string  `json:"debitURI"`
 	CreditURI       string  `json:"creditURI"`
 }
@@ -66,7 +67,7 @@ func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
 	return t, nil
 }
 
-func (t *Transaction) CreateBankAccount() *balanced.BankAccount{
+func (t *Transaction) CreateBankAccount() *balanced.BankAccount {
 	bank_account := new(balanced.BankAccount)
 	bank_account.CreditsURI = t.CreditSourceURI
 	return bank_account
@@ -86,10 +87,27 @@ func (t *Transaction) ConvertToDebit() *balanced.Debit {
 
 func (t *Transaction) ConvertToCredit() *balanced.Credit {
 	credit := new(balanced.Credit)
-	credit.Amount = int(t.Amount) * 100
+	fee := t.CalculateFee()
+	credit.Amount = int(t.Amount - fee) * 100
 	credit.AppearsOnStatementAs = "Wurk Happy"
 	credit.Meta = map[string]string{
-		"id":              t.ID,
+		"id": t.ID,
 	}
 	return credit
+}
+
+func (t *Transaction) CalculateFee() float64 {
+	var fee float64
+	if t.PaymentType == "CardBalanced" {
+		fee = (t.Amount * 0.029) + 0.33
+	} else if t.PaymentType == "BankBalanced" {
+		fee = 5
+	}
+	whFee := t.Amount * 0.05
+	if whFee > 50 {
+		whFee = 50
+	}
+
+	fee = fee + whFee
+	return fee
 }
