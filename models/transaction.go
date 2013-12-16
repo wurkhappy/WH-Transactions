@@ -88,7 +88,7 @@ func (t *Transaction) ConvertToDebit() *balanced.Debit {
 func (t *Transaction) ConvertToCredit() *balanced.Credit {
 	credit := new(balanced.Credit)
 	fee := t.CalculateFee()
-	credit.Amount = int(t.Amount - fee) * 100
+	credit.Amount = int(t.Amount-fee) * 100
 	credit.AppearsOnStatementAs = "Wurk Happy"
 	credit.Meta = map[string]string{
 		"id": t.ID,
@@ -101,13 +101,26 @@ func (t *Transaction) CalculateFee() float64 {
 	if t.PaymentType == "CardBalanced" {
 		fee = (t.Amount * 0.029) + 0.33
 	} else if t.PaymentType == "BankBalanced" {
-		fee = 5
+		fee = (t.Amount * 0.01) + 0.30
+		if fee > 5 {
+			fee = 5
+		}
 	}
-	whFee := t.Amount * 0.05
-	if whFee > 50 {
-		whFee = 50
-	}
-
+	whFee := calculateWurkHappyFee(t.Amount)
 	fee = fee + whFee
 	return fee
+}
+
+func calculateWurkHappyFee(amount float64) float64 {
+	var whFee float64
+	if amount >= 1000 {
+		whFee = 50
+	} else if amount >= 500 {
+		whFee = 25
+	} else if amount >= 100 {
+		whFee = 10
+	} else if amount >= 10 {
+		whFee = 5
+	}
+	return whFee
 }
