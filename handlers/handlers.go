@@ -14,6 +14,7 @@ func CreateTransaction(params map[string]string, body []byte) error {
 	log.Print(string(body))
 	var m map[string]interface{}
 	json.Unmarshal(body, &m)
+	log.Println(m)
 	transaction := models.NewTransactionFromRequest(m)
 	err := transaction.Save()
 	if err != nil {
@@ -27,10 +28,12 @@ func SendPayment(params map[string]string, body []byte) error {
 	log.Print("send payment")
 	var m map[string]interface{}
 	json.Unmarshal(body, &m)
+	log.Print(m)
 
 	paymentID := params["id"]
 	transaction, _ := models.FindTransactionByPaymentID(paymentID)
 	transaction.DebitSourceURI = m["debitSourceURI"].(string)
+	transaction.PaymentType = m["paymentType"].(string)
 	debit := transaction.ConvertToDebit()
 	customer := getClient(transaction.ClientID)
 	bError := customer.Debit(debit)
@@ -50,7 +53,7 @@ func SendPayment(params map[string]string, body []byte) error {
 
 type DebitCallback struct {
 	Debit *balanced.Debit `json:"entity"`
-	Type   string  `json:"type"`
+	Type  string          `json:"type"`
 }
 
 func ProcessCredit(params map[string]string, body []byte) error {
