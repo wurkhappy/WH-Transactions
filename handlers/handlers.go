@@ -28,7 +28,6 @@ func SendPayment(params map[string]string, body []byte) error {
 	log.Print("send payment")
 	var m map[string]interface{}
 	json.Unmarshal(body, &m)
-	log.Print(m)
 
 	paymentID := params["id"]
 	transaction, _ := models.FindTransactionByPaymentID(paymentID)
