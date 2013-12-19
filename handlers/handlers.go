@@ -31,6 +31,9 @@ func SendPayment(params map[string]string, body []byte) error {
 
 	paymentID := params["id"]
 	transaction, _ := models.FindTransactionByPaymentID(paymentID)
+	if transaction.Amount == 0 {
+		return nil
+	}
 	transaction.DebitSourceURI = m["debitSourceURI"].(string)
 	transaction.PaymentType = m["paymentType"].(string)
 	debit := transaction.ConvertToDebit()
