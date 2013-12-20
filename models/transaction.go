@@ -75,7 +75,7 @@ func (t *Transaction) CreateBankAccount() *balanced.BankAccount {
 
 func (t *Transaction) ConvertToDebit() *balanced.Debit {
 	debit := new(balanced.Debit)
-	debit.Amount = int(t.Amount) * 100
+	debit.Amount = int(t.Amount * 100)
 	debit.AppearsOnStatementAs = "Wurk Happy"
 	debit.SourceUri = t.DebitSourceURI
 	debit.Meta = map[string]string{
@@ -88,7 +88,7 @@ func (t *Transaction) ConvertToDebit() *balanced.Debit {
 func (t *Transaction) ConvertToCredit() *balanced.Credit {
 	credit := new(balanced.Credit)
 	fee := t.CalculateFee()
-	credit.Amount = int(t.Amount-fee) * 100
+	credit.Amount = int((t.Amount - fee) * 100)
 	credit.AppearsOnStatementAs = "Wurk Happy"
 	credit.Meta = map[string]string{
 		"id": t.ID,
@@ -99,9 +99,9 @@ func (t *Transaction) ConvertToCredit() *balanced.Credit {
 func (t *Transaction) CalculateFee() float64 {
 	var fee float64
 	if t.PaymentType == "CardBalanced" {
-		fee = (t.Amount * 0.029) + 0.33
+		fee = (t.Amount * 0.029) + 0.33 + 0.25
 	} else if t.PaymentType == "BankBalanced" {
-		fee = (t.Amount * 0.01) + 0.30
+		fee = (t.Amount * 0.01) + 0.30 + 0.25
 		if fee > 5 {
 			fee = 5
 		}
