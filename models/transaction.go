@@ -99,7 +99,7 @@ func (t *Transaction) ConvertToCredit() *balanced.Credit {
 func (t *Transaction) CalculateFee() float64 {
 	var fee float64
 	if t.PaymentType == "CardBalanced" {
-		fee = (t.Amount * 0.029) + 0.33 + 0.25
+		fee = (t.Amount * 0.029) + 0.30 + 0.25
 	} else if t.PaymentType == "BankBalanced" {
 		fee = (t.Amount * 0.01) + 0.30 + 0.25
 		if fee > 5 {
