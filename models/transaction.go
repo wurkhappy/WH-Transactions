@@ -112,15 +112,9 @@ func (t *Transaction) CalculateFee() float64 {
 }
 
 func calculateWurkHappyFee(amount float64) float64 {
-	var whFee float64
-	if amount >= 1000 {
-		whFee = 50
-	} else if amount >= 500 {
-		whFee = 25
-	} else if amount >= 100 {
+	var whFee float64 = amount * 0.01
+	if amount > 10 {
 		whFee = 10
-	} else if amount >= 10 {
-		whFee = 5
 	}
 	return whFee
 }
