@@ -2,8 +2,10 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/nu7hatch/gouuid"
 	"github.com/wurkhappy/Balanced-go"
+	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
 	"log"
 )
@@ -11,28 +13,33 @@ import (
 type Transaction struct {
 	ID              string  `json:"id"`
 	DebitSourceURI  string  `json:"debitSourceURI"`
+	DebitSourceID   string  `json:"debitSourceID"`
 	ClientID        string  `json:"clientID"`
 	FreelancerID    string  `json:"freelancerID"`
 	AgreementID     string  `json:"agreementID"`
 	PaymentID       string  `json:"paymentID"`
 	Amount          float64 `json:"amount"`
 	CreditSourceURI string  `json:"creditSourceURI"`
+	CreditSourceID  string  `json:"creditSourceID"`
 	PaymentType     string  `json:"paymentType"`
 	DebitURI        string  `json:"debitURI"`
 	CreditURI       string  `json:"creditURI"`
 }
 
+var BalancedCardType string = "CardBalanced"
+var BalancedBankType string = "BankBalanced"
+
 func NewTransactionFromRequest(m map[string]interface{}) *Transaction {
 	id, _ := uuid.NewV4()
 
 	return &Transaction{
-		ID:              id.String(),
-		AgreementID:     m["agreementID"].(string),
-		Amount:          m["amount"].(float64),
-		ClientID:        m["clientID"].(string),
-		CreditSourceURI: m["creditSourceURI"].(string),
-		FreelancerID:    m["freelancerID"].(string),
-		PaymentID:       m["paymentID"].(string),
+		ID:             id.String(),
+		AgreementID:    m["agreementID"].(string),
+		Amount:         m["amount"].(float64),
+		ClientID:       m["clientID"].(string),
+		CreditSourceID: m["creditSourceID"].(string),
+		FreelancerID:   m["freelancerID"].(string),
+		PaymentID:      m["paymentID"].(string),
 	}
 
 }
@@ -109,6 +116,34 @@ func (t *Transaction) CalculateFee() float64 {
 	whFee := calculateWurkHappyFee(t.Amount)
 	fee = fee + whFee
 	return fee
+}
+
+func (t *Transaction) GetCreditSourceURI() error {
+	resp, statusCode := sendServiceRequest("GET", config.PaymentInfoService, "/user/"+t.FreelancerID+"/bank_account/"+t.CreditSourceID+"/uri", nil)
+	if statusCode > 400 {
+		return fmt.Errorf("Could not find source")
+	}
+	var m map[string]interface{}
+	json.Unmarshal(resp, &m)
+	t.CreditSourceURI = m["uri"].(string)
+	return nil
+}
+
+func (t *Transaction) GetDebitSourceURI() error {
+	var path string
+	if t.PaymentType == BalancedBankType {
+		path = "/user/" + t.ClientID + "/bank_account/" + t.DebitSourceID + "/uri"
+	} else {
+		path = "/user/" + t.ClientID + "/cards/" + t.DebitSourceID + "/uri"
+	}
+	resp, statusCode := sendServiceRequest("GET", config.PaymentInfoService, path, nil)
+	if statusCode > 400 {
+		return fmt.Errorf("Could not find source")
+	}
+	var m map[string]interface{}
+	json.Unmarshal(resp, &m)
+	t.DebitSourceURI = m["uri"].(string)
+	return nil
 }
 
 func calculateWurkHappyFee(amount float64) float64 {

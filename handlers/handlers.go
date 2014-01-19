@@ -16,7 +16,11 @@ func CreateTransaction(params map[string]string, body []byte) error {
 	json.Unmarshal(body, &m)
 	log.Println(m)
 	transaction := models.NewTransactionFromRequest(m)
-	err := transaction.Save()
+	err := transaction.GetCreditSourceURI()
+	if err != nil {
+		return err
+	}
+	err = transaction.Save()
 	if err != nil {
 		return err
 	}
@@ -34,7 +38,11 @@ func SendPayment(params map[string]string, body []byte) error {
 	if transaction.Amount == 0 {
 		return nil
 	}
-	transaction.DebitSourceURI = m["debitSourceURI"].(string)
+	transaction.DebitSourceID = m["debitSourceID"].(string)
+	err := transaction.GetDebitSourceURI()
+	if err != nil {
+		return err
+	}
 	transaction.PaymentType = m["paymentType"].(string)
 	debit := transaction.ConvertToDebit()
 	customer := getClient(transaction.ClientID)
@@ -44,7 +52,7 @@ func SendPayment(params map[string]string, body []byte) error {
 		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
 	}
 	transaction.DebitURI = debit.URI
-	err := transaction.Save()
+	err = transaction.Save()
 	if err != nil {
 		log.Printf("db error is %s", err)
 		return err
