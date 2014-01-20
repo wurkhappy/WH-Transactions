@@ -8,22 +8,25 @@ import (
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
 	"log"
+	"time"
 )
 
 type Transaction struct {
-	ID              string  `json:"id"`
-	DebitSourceURI  string  `json:"debitSourceURI"`
-	DebitSourceID   string  `json:"debitSourceID"`
-	ClientID        string  `json:"clientID"`
-	FreelancerID    string  `json:"freelancerID"`
-	AgreementID     string  `json:"agreementID"`
-	PaymentID       string  `json:"paymentID"`
-	Amount          float64 `json:"amount"`
-	CreditSourceURI string  `json:"creditSourceURI"`
-	CreditSourceID  string  `json:"creditSourceID"`
-	PaymentType     string  `json:"paymentType"`
-	DebitURI        string  `json:"debitURI"`
-	CreditURI       string  `json:"creditURI"`
+	ID              string    `json:"id"`
+	DebitSourceURI  string    `json:"debitSourceURI"`
+	DebitSourceID   string    `json:"debitSourceID"`
+	ClientID        string    `json:"clientID"`
+	FreelancerID    string    `json:"freelancerID"`
+	AgreementID     string    `json:"agreementID"`
+	PaymentID       string    `json:"paymentID"`
+	Amount          float64   `json:"amount"`
+	CreditSourceURI string    `json:"creditSourceURI"`
+	CreditSourceID  string    `json:"creditSourceID"`
+	PaymentType     string    `json:"paymentType"`
+	DebitURI        string    `json:"debitURI"`
+	CreditURI       string    `json:"creditURI"`
+	DebitDate       time.Time `json:"debitDate"`
+	CreditDate      time.Time `json:"creditDate"`
 }
 
 var BalancedCardType string = "CardBalanced"

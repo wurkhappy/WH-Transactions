@@ -8,6 +8,7 @@ import (
 	"github.com/wurkhappy/WH-Transactions/models"
 	"github.com/wurkhappy/mdp"
 	"log"
+	"time"
 )
 
 func CreateTransaction(params map[string]string, body []byte) error {
@@ -51,6 +52,7 @@ func SendPayment(params map[string]string, body []byte) error {
 		log.Printf("berror is %s", bError)
 		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
 	}
+	transaction.DebitDate = time.Now()
 	transaction.DebitURI = debit.URI
 	err = transaction.Save()
 	if err != nil {
@@ -78,6 +80,12 @@ func ProcessCredit(params map[string]string, body []byte) error {
 	if bError != nil {
 		log.Printf("berror is %s", bError)
 		return fmt.Errorf(bError.Description+" %s", bError.StatusCode)
+	}
+	transaction.CreditDate = time.Now()
+	err := transaction.Save()
+	if err != nil {
+		log.Printf("db error is %s", err)
+		return err
 	}
 	return nil
 }
