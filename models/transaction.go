@@ -49,7 +49,8 @@ func NewTransactionFromRequest(m map[string]interface{}) *Transaction {
 
 func (t *Transaction) Save() error {
 	jsonByte, _ := json.Marshal(t)
-	_, err := DB.UpsertTransaction.Query(t.ID, string(jsonByte))
+	r, err := DB.UpsertTransaction.Query(t.ID, string(jsonByte))
+	r.Close()
 	if err != nil {
 		log.Print(err)
 		return err
