@@ -4,29 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nu7hatch/gouuid"
-	"github.com/wurkhappy/Balanced-go"
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
+	"github.com/wurkhappy/balanced-go"
 	"log"
 	"time"
 )
 
 type Transaction struct {
-	ID              string    `json:"id"`
-	DebitSourceURI  string    `json:"debitSourceURI"`
-	DebitSourceID   string    `json:"debitSourceID"`
-	ClientID        string    `json:"clientID"`
-	FreelancerID    string    `json:"freelancerID"`
-	AgreementID     string    `json:"agreementID"`
-	PaymentID       string    `json:"paymentID"`
-	Amount          float64   `json:"amount"`
-	CreditSourceURI string    `json:"creditSourceURI"`
-	CreditSourceID  string    `json:"creditSourceID"`
-	PaymentType     string    `json:"paymentType"`
-	DebitURI        string    `json:"debitURI"`
-	CreditURI       string    `json:"creditURI"`
-	DebitDate       time.Time `json:"debitDate"`
-	CreditDate      time.Time `json:"creditDate"`
+	ID                     string    `json:"id"`
+	DebitSourceBalancedID  string    `json:"debitSourceURI"`
+	DebitSourceID          string    `json:"debitSourceID"`
+	ClientID               string    `json:"clientID"`
+	FreelancerID           string    `json:"freelancerID"`
+	AgreementID            string    `json:"agreementID"`
+	PaymentID              string    `json:"paymentID"`
+	Amount                 float64   `json:"amount"`
+	CreditSourceBalancedID string    `json:"creditSourceURI"`
+	CreditSourceID         string    `json:"creditSourceID"`
+	PaymentType            string    `json:"paymentType"`
+	DebitURI               string    `json:"debitURI"`
+	CreditURI              string    `json:"creditURI"`
+	DebitDate              time.Time `json:"debitDate"`
+	CreditDate             time.Time `json:"creditDate"`
 }
 
 var BalancedCardType string = "CardBalanced"
@@ -80,7 +80,7 @@ func FindTransactionByPaymentID(id string) (t *Transaction, err error) {
 
 func (t *Transaction) CreateBankAccount() *balanced.BankAccount {
 	bank_account := new(balanced.BankAccount)
-	bank_account.CreditsURI = t.CreditSourceURI
+	bank_account.ID = t.CreditSourceBalancedID
 	return bank_account
 }
 
@@ -88,10 +88,18 @@ func (t *Transaction) ConvertToDebit() *balanced.Debit {
 	debit := new(balanced.Debit)
 	debit.Amount = int(t.Amount * 100)
 	debit.AppearsOnStatementAs = "Wurk Happy"
-	debit.SourceUri = t.DebitSourceURI
+	bankAccount := new(balanced.BankAccount)
+	creditCard := new(balanced.Card)
+	if t.PaymentType == BalancedCardType {
+		creditCard.ID = t.DebitSourceBalancedID
+		debit.Owner = creditCard
+	} else {
+		bankAccount.ID = t.DebitSourceBalancedID
+		debit.Owner = bankAccount
+	}
 	debit.Meta = map[string]string{
 		"id":              t.ID,
-		"creditSourceURI": t.CreditSourceURI,
+		"creditSourceURI": t.CreditSourceBalancedID,
 	}
 	return debit
 }
@@ -122,18 +130,18 @@ func (t *Transaction) CalculateFee() float64 {
 	return fee
 }
 
-func (t *Transaction) GetCreditSourceURI() error {
+func (t *Transaction) GetCreditSourceInfo() error {
 	resp, statusCode := sendServiceRequest("GET", config.PaymentInfoService, "/user/"+t.FreelancerID+"/bank_account/"+t.CreditSourceID+"/uri", nil)
 	if statusCode > 400 {
 		return fmt.Errorf("Could not find source")
 	}
 	var m map[string]interface{}
 	json.Unmarshal(resp, &m)
-	t.CreditSourceURI = m["uri"].(string)
+	t.CreditSourceBalancedID = m["balanced_id"].(string)
 	return nil
 }
 
-func (t *Transaction) GetDebitSourceURI() error {
+func (t *Transaction) GetDebitSourceInfo() error {
 	var path string
 	if t.PaymentType == BalancedBankType {
 		path = "/user/" + t.ClientID + "/bank_account/" + t.DebitSourceID + "/uri"
@@ -146,8 +154,14 @@ func (t *Transaction) GetDebitSourceURI() error {
 	}
 	var m map[string]interface{}
 	json.Unmarshal(resp, &m)
-	t.DebitSourceURI = m["uri"].(string)
+	t.DebitSourceBalancedID = m["balanced_id"].(string)
 	return nil
+}
+
+func (t *Transaction) CreateDebit() (string, error) {
+	debit := t.ConvertToDebit()
+	bErrors := balanced.Create(debit)
+	return debit.ID, formatBalancedErrors(bErrors)
 }
 
 func calculateWurkHappyFee(amount float64) float64 {

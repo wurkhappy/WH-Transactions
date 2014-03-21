@@ -2,7 +2,9 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/wurkhappy/WH-Config"
+	"github.com/wurkhappy/balanced-go"
 	"github.com/wurkhappy/mdp"
 )
 
@@ -28,4 +30,12 @@ func sendServiceRequest(method, service, path string, body []byte) (response []b
 	resp := new(ServiceResp)
 	json.Unmarshal(reply[0], &resp)
 	return resp.Body, int(resp.StatusCode)
+}
+
+func formatBalancedErrors(bErrors []*balanced.BalancedError) error {
+	var errorMessages string
+	for _, bError := range bErrors {
+		errorMessages += bError.Description + ", "
+	}
+	return fmt.Errorf(errorMessages)
 }

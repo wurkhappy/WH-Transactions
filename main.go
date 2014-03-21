@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/streadway/amqp"
-	"github.com/wurkhappy/Balanced-go"
 	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
 	"github.com/wurkhappy/WH-Transactions/handlers"
+	"github.com/wurkhappy/balanced-go"
 	"log"
 )
 
@@ -35,12 +35,12 @@ var router urlrouter.Router = urlrouter.Router{
 				"PUT": handlers.SendPayment,
 			},
 		},
-		urlrouter.Route{
-			PathExp: "/debit/process",
-			Dest: map[string]interface{}{
-				"POST": handlers.ProcessCredit,
-			},
-		},
+		// urlrouter.Route{
+		// 	PathExp: "/debit/process",
+		// 	Dest: map[string]interface{}{
+		// 		"POST": handlers.ProcessCredit,
+		// 	},
+		// },
 	},
 }
 
