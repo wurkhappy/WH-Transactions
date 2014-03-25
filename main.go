@@ -69,7 +69,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Print("route")
 	for d := range deliveries {
 		go routeMapper(d)
 	}
@@ -94,6 +93,9 @@ func routeMapper(d amqp.Delivery) {
 		fmt.Println(err)
 		d.Nack(false, false)
 	}
+
+	fmt.Println(req.Path, req.Method, req.Body)
+
 	routedMap := route.Dest.(map[string]interface{})
 	handler := routedMap[req.Method].(func(map[string]string, []byte) error)
 	err = handler(params, req.Body)
