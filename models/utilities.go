@@ -37,5 +37,8 @@ func formatBalancedErrors(bErrors []*balanced.BalancedError) error {
 	for _, bError := range bErrors {
 		errorMessages += bError.Description + ", "
 	}
+	if errorMessages == "" {
+		return nil
+	}
 	return fmt.Errorf(errorMessages)
 }

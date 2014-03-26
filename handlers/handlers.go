@@ -24,7 +24,6 @@ func CreateTransaction(params map[string]string, body []byte) error {
 }
 
 func SendPayment(params map[string]string, body []byte) error {
-	log.Print("send payment")
 	var m map[string]interface{}
 	json.Unmarshal(body, &m)
 
@@ -54,9 +53,7 @@ func SendPayment(params map[string]string, body []byte) error {
 	return nil
 }
 
-// type DebitCallback struct {
-// 	Debit *balanced.Debit `json:"entity"`
-// 	Type  string          `json:"type"`
+// type DebitCall// 	Type  string          `json:"type"`
 // }
 
 // func ProcessCredit(params map[string]string, body []byte) error {
@@ -79,4 +76,5 @@ func SendPayment(params map[string]string, body []byte) error {
 // 		return err
 // 	}
 // 	return nil
-// }
+// }back struct {
+// 	Debit *balanced.Debit `json:"entity"`

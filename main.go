@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	exchangeType = flag.String("exchange-type", "direct", "Exchange type - direct|fanout|topic|x-custom")
+	exchangeType = flag.String("exchange-type", "topic", "Exchange type - direct|fanout|topic|x-custom")
 	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
 	production   = flag.Bool("production", false, "Production settings")
 )
@@ -94,7 +94,7 @@ func routeMapper(d amqp.Delivery) {
 		d.Nack(false, false)
 	}
 
-	fmt.Println(req.Path, req.Method, req.Body)
+	log.Println(req.Path, req.Method, string(req.Body))
 
 	routedMap := route.Dest.(map[string]interface{})
 	handler := routedMap[req.Method].(func(map[string]string, []byte) error)
