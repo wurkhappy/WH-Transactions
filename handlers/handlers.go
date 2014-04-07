@@ -4,8 +4,33 @@ import (
 	"encoding/json"
 	"github.com/wurkhappy/WH-Transactions/models"
 	"log"
+	"net/http"
 	"time"
 )
+
+func ReceivedCreditInfo(params map[string]interface{}, body []byte) ([]byte, error, int) {
+	var message struct {
+		PaymentID            string  `json:"paymentID"`
+		Amount               float64 `json:"amount"`
+		UserID               string  `json:"userID"`
+		CreditSourceBalanced string  `json:"creditSourceBalanced,omitempty"`
+	}
+	json.Unmarshal(body, &message)
+
+	transaction := models.NewTransaction()
+	transaction.PaymentID = message.PaymentID
+	transaction.Amount = message.Amount
+	transaction.FreelancerID = message.UserID
+	transaction.CreditSourceBalancedID = message.CreditSourceBalanced
+
+	err := transaction.Save()
+	if err != nil {
+		return nil, err, http.StatusBadRequest
+	}
+
+	return nil, nil, http.StatusOK
+
+}
 
 func CreateTransaction(params map[string]string, body []byte) error {
 	var m map[string]interface{}

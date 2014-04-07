@@ -32,6 +32,15 @@ type Transaction struct {
 var BalancedCardType string = "CardBalanced"
 var BalancedBankType string = "BankBalanced"
 
+func NewTransaction() *Transaction {
+	id, _ := uuid.NewV4()
+
+	return &Transaction{
+		ID: id.String(),
+	}
+
+}
+
 func NewTransactionFromRequest(m map[string]interface{}) *Transaction {
 	id, _ := uuid.NewV4()
 

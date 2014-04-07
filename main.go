@@ -1,50 +1,30 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/ant0ine/go-urlrouter"
 	"github.com/streadway/amqp"
-	rbtmq "github.com/wurkhappy/Rabbitmq-go-wrapper"
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
-	"github.com/wurkhappy/WH-Transactions/handlers"
-	"github.com/wurkhappy/balanced-go"
 	"log"
 )
 
-var (
-	exchangeType = flag.String("exchange-type", "topic", "Exchange type - direct|fanout|topic|x-custom")
-	consumerTag  = flag.String("consumer-tag", "simple-consumer", "AMQP consumer tag (should not be blank)")
-	production   = flag.Bool("production", false, "Production settings")
-)
+var count int
 
-//order matters so most general should go towards the bottom
-var router urlrouter.Router = urlrouter.Router{
-	Routes: []urlrouter.Route{
-		urlrouter.Route{
-			PathExp: "/transactions",
-			Dest: map[string]interface{}{
-				"POST": handlers.CreateTransaction,
-			},
-		},
-		urlrouter.Route{
-			PathExp: "/payment/:id/transaction",
-			Dest: map[string]interface{}{
-				"PUT": handlers.SendPayment,
-			},
-		},
-		// urlrouter.Route{
-		// 	PathExp: "/debit/process",
-		// 	Dest: map[string]interface{}{
-		// 		"POST": handlers.ProcessCredit,
-		// 	},
-		// },
-	},
+var conn *amqp.Connection
+
+var production = flag.Bool("production", false, "Production settings")
+
+func failOnError(err error, msg string) {
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
+		panic(fmt.Sprintf("%s: %s", msg, err))
+	}
 }
 
 func main() {
+	var err error
+
 	flag.Parse()
 	if *production {
 		config.Prod()
@@ -52,56 +32,75 @@ func main() {
 		config.Test()
 	}
 	DB.Setup(*production)
-	balanced.Username = config.BalancedUsername
-	var err error
-	conn, err := amqp.Dial(config.TransactionsBroker)
-	if err != nil {
-		fmt.Errorf("Dial: %s", err)
-	}
-	c, err := rbtmq.NewConsumer(conn, config.TransactionsExchange, *exchangeType, config.TransactionsQueue, *consumerTag)
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-
-	deliveries := c.Consume(config.TransactionsQueue)
+	defer DB.Close()
 
 	err = router.Start()
 	if err != nil {
 		panic(err)
 	}
-	for d := range deliveries {
-		go routeMapper(d)
+
+	conn, err = amqp.Dial("amqp://guest:guest@localhost:5672/")
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	err = ch.ExchangeDeclare(
+		config.MainExchange, // name
+		"topic",             // type
+		true,                // durable
+		false,               // auto-deleted
+		false,               // internal
+		false,               // noWait
+		nil,                 // arguments
+	)
+	failOnError(err, "Failed to declare an exchange")
+	q, err := ch.QueueDeclare(
+		config.TransactionsQueue, // name
+		false, // durable
+		false, // delete when usused
+		false, // exclusive
+		false, // noWait
+		amqp.Table{
+			"x-dead-letter-exchange": config.DeadLetterExchange,
+		},,   // arguments
+	)
+	failOnError(err, "Failed to declare a queue")
+
+	for _, route := range router.Routes {
+		err = ch.QueueBind(
+			q.Name,              // queue name
+			route.PathExp,       // routing key
+			config.MainExchange, // exchange
+			false,
+			nil)
+		failOnError(err, "Failed to bind a queue")
+	}
+
+	msgs, err := ch.Consume(q.Name, "", false, false, false, false, nil)
+	for d := range msgs {
+		routeDelivery(d)
 	}
 }
 
-type ServiceReq struct {
-	Method string
-	Path   string
-	Body   []byte
-}
-
-func routeMapper(d amqp.Delivery) {
-	route, params, err := router.FindRoute(d.RoutingKey)
+func routeDelivery(d amqp.Delivery) {
+	route, _, err := router.FindRoute(d.RoutingKey)
 	if err != nil || route == nil {
 		log.Printf("ERROR is: %v", err)
+		d.Nack(false, false)
 		return
 	}
 
-	var req *ServiceReq
-	err = json.Unmarshal(d.Body, &req)
-	if err != nil {
-		fmt.Println(err)
-		d.Nack(false, false)
-	}
+	params := make(map[string]interface{})
 
-	log.Println(req.Path, req.Method, string(req.Body))
-
-	routedMap := route.Dest.(map[string]interface{})
-	handler := routedMap[req.Method].(func(map[string]string, []byte) error)
-	err = handler(params, req.Body)
+	handler := route.Dest.(func(map[string]interface{}, []byte) ([]byte, error, int))
+	_, err, _ = handler(params, d.Body)
 	if err != nil {
 		log.Printf("ERROR is: %v", err)
 		d.Nack(false, false)
+		return
 	}
 	d.Ack(false)
 }

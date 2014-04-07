@@ -25,3 +25,11 @@ func Connect(production bool) {
 		panic(err)
 	}
 }
+
+func Close() {
+	UpsertTransaction.Close()
+	FindTransactionByID.Close()
+	FindTransactionByPaymentID.Close()
+
+	DB.Close()
+}
