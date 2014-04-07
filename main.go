@@ -65,7 +65,7 @@ func main() {
 		false, // noWait
 		amqp.Table{
 			"x-dead-letter-exchange": config.DeadLetterExchange,
-		},,   // arguments
+		}, // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
