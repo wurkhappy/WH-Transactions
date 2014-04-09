@@ -11,5 +11,9 @@ var router urlrouter.Router = urlrouter.Router{
 			PathExp: "paymentinfo.credit",
 			Dest:    handlers.ReceivedCreditInfo,
 		},
+		urlrouter.Route{
+			PathExp: "paymentinfo.debit",
+			Dest:    handlers.ReceivedDebitInfo,
+		},
 	},
 }

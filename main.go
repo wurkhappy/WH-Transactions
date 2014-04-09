@@ -6,6 +6,7 @@ import (
 	"github.com/streadway/amqp"
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
+	"github.com/wurkhappy/balanced-go"
 	"log"
 )
 
@@ -38,6 +39,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	balanced.Username = config.BalancedUsername
 
 	conn, err = amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -94,7 +97,7 @@ func routeDelivery(d amqp.Delivery) {
 	}
 
 	params := make(map[string]interface{})
-
+	fmt.Println(d.RoutingKey, string(d.Body))
 	handler := route.Dest.(func(map[string]interface{}, []byte) ([]byte, error, int))
 	_, err, _ = handler(params, d.Body)
 	if err != nil {

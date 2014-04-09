@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/wurkhappy/WH-Transactions/models"
-	"log"
 	"net/http"
 	"time"
 )
@@ -32,50 +32,37 @@ func ReceivedCreditInfo(params map[string]interface{}, body []byte) ([]byte, err
 
 }
 
-func CreateTransaction(params map[string]string, body []byte) error {
-	var m map[string]interface{}
-	json.Unmarshal(body, &m)
-	transaction := models.NewTransactionFromRequest(m)
-	err := transaction.GetCreditSourceInfo()
-	if err != nil {
-		return err
+func ReceivedDebitInfo(params map[string]interface{}, body []byte) ([]byte, error, int) {
+	var message struct {
+		PaymentID           string  `json:"paymentID"`
+		PaymentType         string  `json:"paymentType"`
+		Amount              float64 `json:"amount"`
+		UserID              string  `json:"userID"`
+		DebitSourceBalanced string  `json:"debitSourceBalanced,omitempty"`
 	}
-	err = transaction.Save()
-	if err != nil {
-		return err
-	}
+	json.Unmarshal(body, &message)
 
-	return nil
-}
-
-func SendPayment(params map[string]string, body []byte) error {
-	var m map[string]interface{}
-	json.Unmarshal(body, &m)
-
-	paymentID := params["id"]
-	transaction, _ := models.FindTransactionByPaymentID(paymentID)
-	if transaction.Amount == 0 {
-		return nil
-	}
-	transaction.DebitSourceID = m["debitSourceID"].(string)
-	err := transaction.GetDebitSourceInfo()
+	transaction, err := models.FindTransactionByPaymentID(message.PaymentID)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("Error finding transaction %s", err.Error()), http.StatusBadRequest
 	}
-	transaction.PaymentType = m["paymentType"].(string)
+	transaction.DebitSourceBalancedID = message.DebitSourceBalanced
+	transaction.PaymentType = message.PaymentType
+
 	debitID, err := transaction.CreateDebit()
 	if err != nil {
-		return err
-	}
-	transaction.DebitDate = time.Now()
-	transaction.DebitSourceBalancedID = debitID
-	err = transaction.Save()
-	if err != nil {
-		log.Printf("db error is %s", err)
-		return err
+		return nil, fmt.Errorf("Error creating debit %s", err.Error()), http.StatusBadRequest
 	}
 
-	return nil
+	transaction.DebitDate = time.Now()
+	transaction.DebitSourceBalancedID = debitID
+
+	err = transaction.Save()
+	if err != nil {
+		return nil, fmt.Errorf("Error saving transaction %s", err.Error()), http.StatusBadRequest
+	}
+
+	return nil, nil, http.StatusOK
 }
 
 // type DebitCall// 	Type  string          `json:"type"`
