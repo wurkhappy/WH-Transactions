@@ -9,6 +9,7 @@ import (
 var UpsertTransaction *sql.Stmt
 var FindTransactionByID *sql.Stmt
 var FindTransactionByPaymentID *sql.Stmt
+var DeleteTransactionByPaymentID *sql.Stmt
 
 func CreateStatements() {
 	var err error
@@ -23,6 +24,11 @@ func CreateStatements() {
 	}
 
 	FindTransactionByPaymentID, err = DB.Prepare("SELECT data FROM transaction WHERE data->>'paymentID' = $1")
+	if err != nil {
+		panic(err)
+	}
+
+	DeleteTransactionByPaymentID, err = DB.Prepare("DELETE FROM transaction WHERE data->>'paymentID' = $1")
 	if err != nil {
 		panic(err)
 	}

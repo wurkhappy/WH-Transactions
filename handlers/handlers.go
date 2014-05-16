@@ -22,6 +22,10 @@ func ReceivedCreditInfo(params map[string]interface{}, body []byte) ([]byte, err
 	transaction.Amount = message.Amount
 	transaction.FreelancerID = message.UserID
 	transaction.CreditSourceBalancedID = message.CreditSourceBalanced
+	if transaction.CreditSourceBalancedID == "" {
+		events := Events{&Event{"transaction.missing_credit", []byte(`{"userID":"` + transaction.FreelancerID + `"}`)}}
+		go events.Publish()
+	}
 
 	err := transaction.Save()
 	if err != nil {
@@ -60,6 +64,21 @@ func ReceivedDebitInfo(params map[string]interface{}, body []byte) ([]byte, erro
 	err = transaction.Save()
 	if err != nil {
 		return nil, fmt.Errorf("Error saving transaction %s", err.Error()), http.StatusBadRequest
+	}
+
+	return nil, nil, http.StatusOK
+}
+
+func CancelPayment(params map[string]interface{}, body []byte) ([]byte, error, int) {
+	var message struct {
+		PaymentID string `json:"paymentID"`
+		UserID    string `json:"userID"`
+	}
+	json.Unmarshal(body, &message)
+
+	err := models.DeleteTransactionWithPaymentID(message.PaymentID)
+	if err != nil {
+		return nil, fmt.Errorf("Error deleting transaction %s", err.Error()), http.StatusBadRequest
 	}
 
 	return nil, nil, http.StatusOK

@@ -180,3 +180,11 @@ func calculateWurkHappyFee(amount float64) float64 {
 	}
 	return whFee
 }
+
+func DeleteTransactionWithPaymentID(id string) (err error) {
+	_, err = DB.DeleteTransactionByPaymentID.Exec(id)
+	if err != nil {
+		return err
+	}
+	return nil
+}

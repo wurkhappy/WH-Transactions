@@ -6,6 +6,7 @@ import (
 	"github.com/streadway/amqp"
 	"github.com/wurkhappy/WH-Config"
 	"github.com/wurkhappy/WH-Transactions/DB"
+	"github.com/wurkhappy/WH-Transactions/handlers"
 	"github.com/wurkhappy/balanced-go"
 	"log"
 )
@@ -45,6 +46,7 @@ func main() {
 	conn, err = amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
+	handlers.Connection = conn
 
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
